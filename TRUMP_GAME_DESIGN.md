@@ -16,6 +16,7 @@
 7. [結局系統](#結局系統)
 8. [UI視覺風格](#ui視覺風格)
 9. [遊戲模式](#遊戲模式)
+10. [技術架構（實作現況）](#技術架構實作現況)
 
 ---
 
@@ -199,20 +200,6 @@ Step 5: 成交 → WEALTH 增加 / 破局 → 雙方損失
 
 ---
 
-## 特殊系統
-
-### 暱稱生成器（Nickname Machine）
-
-玩家可對 AI 對手創造川普式貶義暱稱：
-
-```
-格式：[形容詞] + [對手姓名]
-範例：Sleepy Joe / Crooked Hillary / Pocahontas / Mini Mike
-```
-
-系統評分標準：**記憶點**、**諷刺度**、**川普風格指數**
-高分暱稱進入個人「名人堂」，可在社群媒體系統中使用
-
 ### 財富顯示模式
 
 ```
@@ -279,5 +266,186 @@ Step 5: 成交 → WEALTH 增加 / 破局 → 雙方損失
 
 ---
 
-*企劃書版本：v1.0*
+---
+
+## 技術架構（實作現況）
+
+> 以下為 Flutter 專案 `trump_app/` 目前的實際架構，供開發參考。
+
+### 專案技術棧
+
+| 項目 | 內容 |
+|------|------|
+| 框架 | Flutter (dart) |
+| 狀態管理 | provider ^6.1.2 — `GameState` 為唯一資料源 |
+| 動畫 | rive ^0.14.4（主）/ flutter_animate ^4.5.2（備援）|
+| 字體 | google_fonts — Space Mono（像素風） |
+| 本地儲存 | shared_preferences ^2.3.5（已宣告，尚未串接） |
+
+---
+
+### 檔案結構
+
+```
+trump_app/lib/
+├── main.dart                          # App 入口；直向鎖定；MaterialApp + GameState provider
+├── models/
+│   └── game_state.dart                # 核心遊戲邏輯；6 大屬性 + 計時器 + 動作方法
+├── character/
+│   ├── character_state.dart           # CharacterState / CharacterStage enum + 所有 metadata extension
+│   ├── trump_sprite_animation.dart    # PNG 換幀動畫（idle_a ↔ idle_b / happy / action）
+│   ├── trump_animated_fallback.dart   # flutter_animate 程序動畫（各階段專屬效果）
+│   └── trump_character_widget.dart    # Rive 動畫包裝器（.riv 載入失敗自動降級）
+├── screens/
+│   └── main_game_screen.dart          # 主畫面（唯一實作畫面）
+└── widgets/
+    ├── speech_bubble.dart             # 對話氣泡（金框白底 + 三角尾）
+    ├── stats_bar.dart                 # 像素屬性列（備用，目前未掛入主畫面）
+    └── bottom_tab_bar.dart            # 底部5分頁（備用，目前未掛入主畫面）
+```
+
+---
+
+### 主畫面佈局（main_game_screen.dart）
+
+```
+SafeArea
+├── _StageBar (h:32)        深藍底；階段名稱 + 年齡範圍
+├── Expanded → _MainArea
+│   └── Stack
+│       ├── 背景圖（AnimatedSwitcher，600ms 漸變）
+│       ├── 暗化遮罩（alpha 0.35）
+│       ├── _StatsSection（頂部）  6 屬性 2欄×3列 + 像素方塊
+│       ├── 升階橫幅（條件顯示）   金底，點擊呼叫 advanceStage()
+│       ├── TrumpSpriteAnimation + SpeechBubble（置中）
+│       └── _MoodIndicator（底部）  心情 emoji + 標籤
+├── _CollapseHandle (h:22)  點擊展開/收起動作列
+└── _ActSection (h:108, 可收合)
+    ├── 餵食  gs.feed('BigMac')
+    ├── 關稅  gs.imposeTariff()
+    ├── 睡覺  gs.forceSleep()
+    ├── 發推  gs.postTweet(…)
+    ├── 高爾夫 gs.playGolf()
+    └── 談判  gs.negotiate()
+```
+
+---
+
+### CharacterStage 對應資源
+
+| 階段 enum | pngName | 背景圖 | 背景色 |
+|-----------|---------|--------|--------|
+| `babyDonald` | `baby_donald` | `queens_house.png` | #FFB3C1 粉紅 |
+| `queensKid` | `queens_kid` | `queens_house.png` | #87CEEB 天藍 |
+| `militaryCadet` | `military_cadet` | `queens_house.png` | #4A5C3A 軍綠 |
+| `whartonBoy` | `wharton_boy` | `manhattan_skyline.png` | #1a237e 深藍 |
+| `daddysApprentice` | `daddys_apprentice` | `manhattan_skyline.png` | #3e2723 深棕 |
+| `manhattanMogul` | `manhattan_mogul` | `manhattan_skyline.png` | #1a237e 深藍 |
+| `casinoKing` | `casino_king` | `atlantic_city_casino.png` | #1a0033 深紫 |
+| `tvStar` | `tv_star` | `nbc_studio.png` | #0d0d0d 黑 |
+| `candidate` | `candidate` | `campaign_stage.png` | #8B0000 深紅 |
+| `thePresident` | `the_president` | `white_house.png` | #8B6914 金棕 |
+
+每個階段有 5 個 PNG（`assets/characters/`）：
+- `{pngName}.png` — 備援底圖
+- `{pngName}_idle_a.png` + `{pngName}_idle_b.png` — 每 480ms 交替
+- `{pngName}_happy.png` — 開心狀態
+- `{pngName}_action.png` — 動作狀態
+
+---
+
+### 動畫降級順序
+
+```
+1. Rive（assets/rive/{stage}.riv）  ← 目前檔案夾為空
+        ↓ 載入失敗
+2. TrumpSpriteAnimation（PNG 換幀）
+        ↓ 圖片找不到
+3. TrumpAnimatedFallback（flutter_animate 程序動畫）
+```
+
+---
+
+### CharacterState 動畫狀態
+
+```dart
+idle / happy / eating / sleeping / angry / sad / tweeting / fired / celebrating / crisis
+```
+
+---
+
+### 已實作 vs 規劃中功能
+
+| 功能 | 狀態 |
+|------|------|
+| 6 大屬性 + 被動衰減 | ✅ 已實作 |
+| 10 成長階段 + 升階判斷 | ✅ 已實作 |
+| 階段背景切換（AnimatedSwitcher）| ✅ 已實作 |
+| 角色 PNG 換幀動畫 | ✅ 已實作 |
+| 對話氣泡 | ✅ 已實作 |
+| 餵食 / 睡覺 / 發推 / 高爾夫 / 談判 | ✅ 已實作 |
+| 關稅機制 | ✅ 已實作 |
+| 建設系統（飯店、大廈、賭場…）| ✅ GameState 已實作，UI 待接 |
+| 破產事件 | ✅ GameState 已實作，UI 待接 |
+| **互動劇情事件（7 個）** | ✅ 已實作 |
+| 推文評分系統 | 規劃中 |
+| 暱稱生成器 | 規劃中 |
+| 法律訴訟系統 | 規劃中 |
+| Story / Crisis / Multiplayer 模式 | 規劃中 |
+| Rive 動畫 | 規劃中（.riv 檔尚未建立） |
+| Feed / Groom / Events 分頁畫面 | 已刪除（整合進主畫面）|
+
+---
+
+### 互動劇情事件實作清單
+
+> 全部事件均以全螢幕 Overlay 形式呈現，由 `GameState._checkAllStoryEvents()` 在每個 tick 自動檢查觸發條件。
+> 非互動式純文字彈窗已移除；保留的都具備實際玩法機制。
+
+事件依歷史時間軸嚴格串接，必須依序解鎖：
+
+```
+【Candidate 階段】
+  1. gop_debate         2015–2016  SUPPORT ≥ 40
+        ↓ 完成後
+  2. election_2016      2016.11    SUPPORT ≥ 80
+
+【thePresident 階段】
+  3. impeachment_1      2019.12    election_2016 ✓
+        ↓ 完成後
+  4. twitter_ban        2021.01    impeachment_1 ✓  + EGO ≥ 85
+        ↓ 完成後
+  5. conviction_2024    2024.05    twitter_ban ✓
+        ↓ 完成後
+  6. assassination_attempt 2024.07 conviction_2024 ✓
+        ↓ 完成後
+  7. election_2024      2024.11    assassination_attempt ✓ + SUPPORT ≥ 80
+```
+
+| 事件 | key | 年份 | 解鎖前置 | 玩法類型 | 玩法說明 |
+|------|-----|------|---------|---------|---------|
+| 🎤 共和黨辯論 | `gop_debate` | 2015–16 | SUPPORT ≥ 40 | Q&A | 3 道選擇題，選最「川普邏輯」答案；得分決定 SUPPORT 增益（+0/+8/+16/+24） |
+| 🌙 選舉夜 2016 | `election_2016` | 2016.11 | gop_debate ✓ + SUPPORT ≥ 80 | 動畫 | 選舉人票從 0 非線性累積至 306 vs 232；勝利解鎖 thePresident 後續事件鏈 |
+| 🔨 第一次彈劾 | `impeachment_1` | 2019.12 | election_2016 ✓ | 點擊 | 30 秒內點擊閃爍的共和黨參議員，需累積 20/60 票阻止定罪；成功 SUPPORT +15 |
+| 🚫 Twitter 封號 | `twitter_ban` | 2021.01 | impeachment_1 ✓ + EGO ≥ 85 | 倒數計時 | 60 秒計時器，玩家需主動點擊「移往 Truth Social」；逾時強制封號 FAME × 0.5 |
+| ⚖️ 重罪定罪 | `conviction_2024` | 2024.05 | twitter_ban ✓ | 反覆點擊 | 45 秒對抗媒體消耗（每秒 EGO −3.5），持續點擊「EGO BOOST」；EGO 歸零即失敗 |
+| 🎯 暗殺未遂 | `assassination_attempt` | 2024.07 | conviction_2024 ✓ | 反應 | 3 輪×2 秒：點綠色安全區閃躲、避開紅色靶心；≥ 2 輪成功 SUPPORT +15 + FAME +30K |
+| 🏆 2024 再度當選 | `election_2024` | 2024.11 | assassination_attempt ✓ + SUPPORT ≥ 80 | 動畫 | 選舉人票從 0 累積至 312 vs 226；完成解鎖隱藏結局 TWICE PRESIDENT |
+| 🌍💥 第三次世界大戰？ | `ww3` | — | election_2024 ✓ | 特殊結局 | 是否發動 WW3 二選一；開戰（EGO +50 / FAME +100萬 / SUPPORT -30）or 和平（SUPPORT +25 / FAME +50萬）；動畫素材待替換 |
+
+#### 檔案對照
+
+| 檔案 | 對應事件 |
+|------|---------|
+| `lib/widgets/gop_debate_overlay.dart` | gop_debate |
+| `lib/widgets/election_night_overlay.dart` | election_2016 / election_2024 |
+| `lib/widgets/impeachment_overlay.dart` | impeachment_1 |
+| `lib/widgets/twitter_ban_overlay.dart` | twitter_ban |
+| `lib/widgets/conviction_overlay.dart` | conviction_2024 |
+| `lib/widgets/assassination_overlay.dart` | assassination_attempt |
+
+---
+
+*企劃書版本：v1.2*
 *建立日期：2026-03-23*
+*最後更新：2026-03-24（實作互動劇情事件系統，移除非互動式彈窗）*

@@ -20,6 +20,9 @@ class GameState extends ChangeNotifier {
   List<String> _completedEvents = [];
   String _currentSpeech = '我是最棒的！TREMENDOUS!';
   CharacterState _characterState = CharacterState.idle;
+  String? _pendingEventKey; // UI 層待顯示的劇情事件
+  bool _hiddenEndingUnlocked = false;
+  CharacterStage? _pendingStageGate; // 待解鎖的階段關卡
 
   GameState() {
     // 每 10 秒自動 tick（被動衰減 + 建築收益）
@@ -41,6 +44,55 @@ class GameState extends ChangeNotifier {
   List<String> get unlockedBuildings => List.unmodifiable(_unlockedBuildings);
   String get currentSpeech => _currentSpeech;
   CharacterState get characterState => _characterState;
+  String? get pendingEventKey => _pendingEventKey;
+  bool get hiddenEndingUnlocked => _hiddenEndingUnlocked;
+  CharacterStage? get pendingStageGate => _pendingStageGate;
+
+  /// UI 層顯示完事件後呼叫，清除待辦事件
+  void acknowledgeEvent() {
+    _pendingEventKey = null;
+    notifyListeners();
+  }
+
+  /// 玩家點擊升級按鈕 → 彈出對應關卡小遊戲
+  /// candidate → thePresident 已由 election_2016 事件把關，直接升級
+  void requestStageAdvance() {
+    if (!canAdvanceStage) return;
+    final next = CharacterStage.values[_stageIndex + 1];
+    if (next == CharacterStage.thePresident) {
+      advanceStage(); // election_2016 已在 canAdvanceStage 條件中
+      return;
+    }
+    _pendingStageGate = next;
+    notifyListeners();
+  }
+
+  /// 關卡小遊戲完成後呼叫
+  void acknowledgeStageGate() {
+    _pendingStageGate = null;
+    notifyListeners();
+  }
+
+  /// 重置遊戲回 0 歲（任何小遊戲失敗觸發）
+  void resetGame() {
+    _wealth = 500;
+    _fame = 10;
+    _hunger = 60;
+    _ego = 40;
+    _energy = 70;
+    _support = 20;
+    _stageIndex = 0;
+    _bankruptcyCount = 0;
+    _tweetStormCount = 0;
+    _unlockedBuildings.clear();
+    _completedEvents.clear();
+    _currentSpeech = '重新開始！我會更偉大！TREMENDOUS!';
+    _characterState = CharacterState.idle;
+    _pendingEventKey = null;
+    _pendingStageGate = null;
+    _hiddenEndingUnlocked = false;
+    notifyListeners();
+  }
 
   // 是否可進行交易（精力充足）
   bool get canDeal => _energy >= 20;
@@ -228,7 +280,29 @@ class GameState extends ChangeNotifier {
     if (_completedEvents.contains(eventKey)) return;
     _completedEvents.add(eventKey);
     rewards.forEach((stat, val) => _applyStat(stat, val));
+
+    // ── 特殊事件邏輯 ──────────────────────────────────────
+    switch (eventKey) {
+      case 'trump_tower_opening':
+        _wealth *= 2; // WEALTH ×2
+      case 'election_2016':
+        _setSpeech('306 對 232！所有人都沒想到！MAKE AMERICA GREAT AGAIN!');
+        _characterState = CharacterState.celebrating;
+        _resetStateAfter(const Duration(seconds: 4));
+      case 'election_2024':
+        _hiddenEndingUnlocked = true;
+        _setSpeech('312 對 226！史上最偉大的勝利！FOUR MORE YEARS!');
+        _characterState = CharacterState.celebrating;
+        _resetStateAfter(const Duration(seconds: 4));
+    }
+
     _checkStageAdvance();
+    notifyListeners();
+  }
+
+  /// Twitter 封號：直接縮減 fame 倍率（不走 completeEvent rewards 機制）
+  void applyFameMultiplier(double multiplier) {
+    _fame *= multiplier;
     notifyListeners();
   }
 
@@ -325,6 +399,67 @@ class GameState extends ChangeNotifier {
     if (canAdvanceStage) {
       // 提示 UI 層可升級（不自動升級，需玩家確認）
     }
+    _checkAllStoryEvents();
+  }
+
+  // ── 劇情事件觸發條件總表 ─────────────────────────────────────
+
+  // ── 劇情事件時間軸（嚴格依歷史順序串接）─────────────────────
+  //
+  //  Candidate 階段
+  //    1. gop_debate        → 2015–2016 共和黨辯論   (SUPPORT ≥ 40)
+  //    2. election_2016     → 2016.11 選舉夜         (gop_debate ✓ + SUPPORT ≥ 80)
+  //
+  //  thePresident 階段
+  //    3. impeachment_1     → 2019.12 第一次彈劾     (election_2016 ✓)
+  //    4. twitter_ban       → 2021.01 Twitter 封號   (impeachment_1 ✓)
+  //    5. conviction_2024   → 2024.05 重罪定罪       (twitter_ban ✓)
+  //    6. assassination_attempt → 2024.07 暗殺未遂   (conviction_2024 ✓)
+  //    7. election_2024     → 2024.11 再度當選       (assassination_attempt ✓ + SUPPORT ≥ 80)
+
+  void _checkAllStoryEvents() {
+    if (_pendingEventKey != null) return;
+
+    // 1. 共和黨辯論（Candidate 階段起，SUPPORT 達標）
+    _checkInteractiveEvent('gop_debate',
+        condition: _stageIndex >= CharacterStage.candidate.index && _support >= 40);
+
+    // 2. 選舉夜 2016（辯論後，SUPPORT 達 80）
+    _checkInteractiveEvent('election_2016',
+        condition: _stageIndex >= CharacterStage.candidate.index &&
+            _completedEvents.contains('gop_debate') && _support >= 80);
+
+    // 3. 第一次彈劾（進入 thePresident 後，選舉 2016 已完成）
+    _checkInteractiveEvent('impeachment_1',
+        condition: _stageIndex >= CharacterStage.thePresident.index &&
+            _completedEvents.contains('election_2016'));
+
+    // 4. Twitter 封號（彈劾後，EGO 飆高到危險值）
+    _checkInteractiveEvent('twitter_ban',
+        condition: _completedEvents.contains('impeachment_1') && _ego >= 85);
+
+    // 5. 重罪定罪（封號後）
+    _checkInteractiveEvent('conviction_2024',
+        condition: _completedEvents.contains('twitter_ban'));
+
+    // 6. 暗殺未遂（定罪後）
+    _checkInteractiveEvent('assassination_attempt',
+        condition: _completedEvents.contains('conviction_2024'));
+
+    // 7. 2024 再度當選（暗殺後，SUPPORT 回升到 80）
+    _checkInteractiveEvent('election_2024',
+        condition: _completedEvents.contains('assassination_attempt') && _support >= 80);
+
+    // 8. 第三次世界大戰？（再度當選後，特殊結局事件）
+    _checkInteractiveEvent('ww3',
+        condition: _completedEvents.contains('election_2024'));
+  }
+
+  void _checkInteractiveEvent(String key, {required bool condition}) {
+    if (_pendingEventKey != null) return;
+    if (_completedEvents.contains(key)) return;
+    if (!condition) return;
+    _pendingEventKey = key;
   }
 
   bool _meetsUnlockCondition(CharacterStage next) {
@@ -346,7 +481,7 @@ class GameState extends ChangeNotifier {
       case CharacterStage.candidate:
         return _support >= 60;
       case CharacterStage.thePresident:
-        return _support >= 80;
+        return _support >= 80 && _completedEvents.contains('election_2016');
       default:
         return false;
     }

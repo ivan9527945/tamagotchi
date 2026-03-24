@@ -4,7 +4,12 @@
       "Bash(flutter pub:*)",
       "Bash(flutter analyze:*)",
       "Bash(python3 -c \":*)",
-      "Bash(flutter devices:*)"
+      "Bash(flutter devices:*)",
+      "Bash(mv XLzsL.png dance_01.png)",
+      "Bash(mv S2rOu.png dance_02.png)",
+      "Bash(mv Mm3mr.png dance_03.png)",
+      "Bash(mv l4ldW.png dance_04.png)",
+      "Bash(mv rgxVv.png dance_05.png)"
     ]
   }
 }

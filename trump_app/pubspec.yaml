@@ -66,6 +66,7 @@ flutter:
     - assets/rive/          # .riv 動畫檔（從 rive.app 匯出）
     - assets/characters/    # 去背 PNG（過渡用）
     - assets/stages/        # 各階段角色場景圖（來自 Pencil 設計稿）
+    - assets/dance/         # YMCA 舞蹈動畫幀（12 frames）
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

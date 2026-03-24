@@ -5,6 +5,14 @@ import '../models/game_state.dart';
 import '../character/character_state.dart';
 import '../character/trump_sprite_animation.dart';
 import '../widgets/speech_bubble.dart';
+import '../widgets/election_night_overlay.dart';
+import '../widgets/gop_debate_overlay.dart';
+import '../widgets/impeachment_overlay.dart';
+import '../widgets/twitter_ban_overlay.dart';
+import '../widgets/conviction_overlay.dart';
+import '../widgets/assassination_overlay.dart';
+import '../widgets/stage_gate_overlay.dart';
+import '../widgets/ww3_overlay.dart';
 
 // ── 設計稿色系（完全對應 trump_tamagotchi.pen）────────────────
 const _kBg      = Color(0xFF0A0A0A);
@@ -29,6 +37,86 @@ class MainGameScreen extends StatefulWidget {
 
 class _MainGameScreenState extends State<MainGameScreen> {
   bool _actionsExpanded = true;
+  bool _showGameOver = false;
+
+  void _triggerGameOver(GameState gs) {
+    setState(() => _showGameOver = true);
+  }
+
+  // ── 劇情事件 Overlay 路由 ─────────────────────────────────
+  Widget _buildEventOverlay(GameState gs) {
+    final key = gs.pendingEventKey!;
+    return switch (key) {
+      'election_2016' => ElectionNightOverlay(
+          year: 2016,
+          trumpTarget: 306,
+          opponentTarget: 232,
+          opponentName: 'CLINTON',
+          onComplete: () {
+            gs.completeEvent('election_2016', {'fame': 200000, 'support': 20, 'ego': 30});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'election_2024' => ElectionNightOverlay(
+          year: 2024,
+          trumpTarget: 312,
+          opponentTarget: 226,
+          opponentName: 'HARRIS',
+          onComplete: () {
+            gs.completeEvent('election_2024', {'wealth': 50000000, 'fame': 500000, 'support': 20, 'ego': 30});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'gop_debate' => GopDebateOverlay(
+          onComplete: (score) {
+            // 統一用 'gop_debate' 記錄完成；score 影響額外 support
+            gs.completeEvent('gop_debate', {'support': score * 8.0});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'impeachment_1' => ImpeachmentOverlay(
+          onComplete: (blocked) {
+            if (!blocked) { gs.acknowledgeEvent(); _triggerGameOver(gs); return; }
+            gs.completeEvent('impeachment_1', {'support': 15.0});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'twitter_ban' => TwitterBanOverlay(
+          onComplete: (moved) {
+            if (!moved) { gs.acknowledgeEvent(); _triggerGameOver(gs); return; }
+            gs.completeEvent('twitter_ban', {'ego': -15.0});
+            gs.applyFameMultiplier(0.7);
+            gs.acknowledgeEvent();
+          },
+        ),
+      'conviction_2024' => ConvictionOverlay(
+          onComplete: (survived) {
+            if (!survived) { gs.acknowledgeEvent(); _triggerGameOver(gs); return; }
+            gs.completeEvent('conviction_2024', {'support': 10.0, 'ego': 5.0});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'assassination_attempt' => AssassinationOverlay(
+          onComplete: (dodged) {
+            if (!dodged) { gs.acknowledgeEvent(); _triggerGameOver(gs); return; }
+            gs.completeEvent('assassination_attempt',
+                {'support': 15.0, 'ego': 20.0, 'fame': 30000.0});
+            gs.acknowledgeEvent();
+          },
+        ),
+      'ww3' => Ww3Overlay(
+          onWar: () {
+            gs.completeEvent('ww3', {'ego': 50.0, 'fame': 1000000.0, 'support': -30.0});
+            gs.acknowledgeEvent();
+          },
+          onPeace: () {
+            gs.completeEvent('ww3', {'support': 25.0, 'fame': 500000.0});
+            gs.acknowledgeEvent();
+          },
+        ),
+      _ => const SizedBox.shrink(),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,27 +124,59 @@ class _MainGameScreenState extends State<MainGameScreen> {
 
     return Scaffold(
       backgroundColor: _kBg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ① headerBar (h:60) — 紅底金框
-            // _HeaderBar(),
-            // ② stageBar (h:32) — 深藍，階段 + 年份
-            _StageBar(gs: gs),
-            // ③ 主區域：背景圖 + 疊加 stats / sprite / 按鈕
-            Expanded(child: _MainArea(gs: gs, actionsExpanded: _actionsExpanded)),
-            // ④ 收合把手 + 操作按鈕
-            _CollapseHandle(
-              expanded: _actionsExpanded,
-              onToggle: () => setState(() => _actionsExpanded = !_actionsExpanded),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // ① headerBar (h:60) — 紅底金框
+                // _HeaderBar(),
+                // ② stageBar (h:32) — 深藍，階段 + 年份
+                _StageBar(gs: gs),
+                // ③ 主區域：背景圖 + 疊加 stats / sprite / 按鈕
+                Expanded(child: _MainArea(gs: gs, actionsExpanded: _actionsExpanded)),
+                // ④ 收合把手 + 操作按鈕
+                _CollapseHandle(
+                  expanded: _actionsExpanded,
+                  onToggle: () => setState(() => _actionsExpanded = !_actionsExpanded),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeInOut,
+                  child: _actionsExpanded ? _ActSection(gs: gs) : const SizedBox.shrink(),
+                ),
+              ],
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOut,
-              child: _actionsExpanded ? _ActSection(gs: gs) : const SizedBox.shrink(),
+          ),
+          // ── 劇情事件 Overlay ──────────────────────────────────
+          if (gs.pendingEventKey != null)
+            Positioned.fill(child: _buildEventOverlay(gs)),
+          // ── Game Over 提示 ────────────────────────────────────
+          if (_showGameOver)
+            Positioned.fill(
+              child: _GameOverOverlay(
+                onConfirm: () {
+                  setState(() => _showGameOver = false);
+                  gs.resetGame();
+                },
+              ),
             ),
-          ],
-        ),
+          // ── 升級關卡 Overlay ──────────────────────────────────
+          if (gs.pendingStageGate != null)
+            Positioned.fill(
+              child: StageGateOverlay(
+                targetStage: gs.pendingStageGate!,
+                onSuccess: () {
+                  gs.acknowledgeStageGate();
+                  gs.advanceStage();
+                },
+                onFail: () {
+                  gs.acknowledgeStageGate();
+                  _triggerGameOver(gs);
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -153,7 +273,7 @@ class _MainArea extends StatelessWidget {
             // 升級橫幅
             if (gs.canAdvanceStage)
               GestureDetector(
-                onTap: gs.advanceStage,
+                onTap: gs.requestStageAdvance,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
@@ -404,6 +524,88 @@ class _ActBtn extends StatelessWidget {
           ),
           child: Center(
             child: Text(label, style: _mono(size: 9, color: textColor), textAlign: TextAlign.center),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Game Over 提示 Overlay
+// ─────────────────────────────────────────────────────────────
+class _GameOverOverlay extends StatefulWidget {
+  final VoidCallback onConfirm;
+  const _GameOverOverlay({required this.onConfirm});
+
+  @override
+  State<_GameOverOverlay> createState() => _GameOverOverlayState();
+}
+
+class _GameOverOverlayState extends State<_GameOverOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.88),
+      child: Center(
+        child: ScaleTransition(
+          scale: _scale,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D0D0D),
+              border: Border.all(color: _kRed, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 頂部紅色 bar
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  color: _kRed,
+                  child: Text('GAME OVER', textAlign: TextAlign.center,
+                      style: _mono(size: 14, color: Colors.white)),
+                ),
+                const SizedBox(height: 20),
+                const Text('😭', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 12),
+                Text('SAD!', style: _mono(size: 28, color: _kRed)),
+                const SizedBox(height: 10),
+                Text('你失敗了。\n唐納從 0 歲重新開始。',
+                    textAlign: TextAlign.center,
+                    style: _mono(size: 10, color: Colors.white70, weight: FontWeight.normal)),
+                const SizedBox(height: 8),
+                Text('「輸家！LOSER!」',
+                    style: _mono(size: 9, color: const Color(0xFF888888), weight: FontWeight.normal)),
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: widget.onConfirm,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    color: _kRed,
+                    child: Text('重頭再來 ▶', textAlign: TextAlign.center,
+                        style: _mono(size: 13, color: _kGold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
