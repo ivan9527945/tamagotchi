@@ -148,32 +148,54 @@ Step 5: 成交 → WEALTH 增加 / 破局 → 雙方損失
 
 遊戲內含 **30+ 個歷史事件**，在對應成長階段觸發：
 
+> **角色素材索引（Pencil node IDs）**
+> 每個階段對應 `trump_tamagotchi.pen` 裡的角色卡片節點，可直接用 ID 取出 Q 版角色圖。
+>
+> | 階段 key | card nodeId | image nodeId | 說明 |
+> |---------|------------|-------------|------|
+> | `baby_donald` | `wtbBZ` | `zddr9` | 🍼 Baby Donald (0–5歲) |
+> | `queens_kid` | `wwIEo` | `EjpCV` | 👦 Queens Kid (6–12歲) |
+> | `military_cadet` | `XI7GZ` | `sa09v` | 🎖️ Military Cadet (13–18歲) |
+> | `wharton_boy` | `26PEY` | `P1aLY` | 🎓 Wharton Boy (18–22歲) |
+> | `daddys_apprentice` | `QBDW9` | `ZOnO5` | 💼 Daddy's Apprentice (22–30歲) |
+> | `manhattan_mogul` | `MujiM` | `M3twO` | 🏙️ Manhattan Mogul (30–45歲) |
+> | `casino_king` | `qgkij` | `kqU1A` | 🎰 Casino King (45–55歲) |
+> | `tv_star` | `Y9kSg` | `EXtod` | 📺 TV Star (55–60歲) |
+> | `candidate` | `DacMv` | `O8y1G` | 🇺🇸 Candidate (60–70歲) |
+> | `the_president` | `j7eV2` | `8cc8M` | 👑 THE PRESIDENT (70+歲) |
+
+---
+
 ### 早期成長（0–30 歲）
-- 🏠 **父親的第一課**：弗雷德教你如何與政府打交道，獲得「交易啟蒙」技能
-- 🎖️ **軍事學院入學**：強制管教，解鎖「紀律」屬性
-- 🎓 **沃頓畢業**：「我是沃頓最頂尖的畢業生」成就解鎖（不管是不是真的）
+<!-- character_key: baby_donald → queens_kid → military_cadet → wharton_boy → daddys_apprentice -->
+- 🏠 **父親的第一課** `[baby_donald]`：弗雷德教你如何與政府打交道，獲得「交易啟蒙」技能
+- 🎖️ **軍事學院入學** `[military_cadet]`：強制管教，解鎖「紀律」屬性
+- 🎓 **沃頓畢業** `[wharton_boy]`：「我是沃頓最頂尖的畢業生」成就解鎖（不管是不是真的）
 
 ### 商業帝國（30–55 歲）
-- 🏨 **商品飯店大交易**：第一個曼哈頓大交易小遊戲
-- 🗼 **川普大廈開幕（1983）**：建設完成慶祝動畫，WEALTH ×2，FAME +10,000
-- 🎰 **泰姬瑪哈開業（1990）**：「世界第八大奇觀」，耗盡資金但聲望暴漲
-- 💸 **破產危機（1991）**：限時談判任務，成功重組 or 宣告破產
+<!-- character_key: manhattan_mogul → casino_king -->
+- 🏨 **商品飯店大交易** `[manhattan_mogul]`：第一個曼哈頓大交易小遊戲
+- 🗼 **川普大廈開幕（1983）** `[manhattan_mogul]`：建設完成慶祝動畫，WEALTH ×2，FAME +10,000
+- 🎰 **泰姬瑪哈開業（1990）** `[casino_king]`：「世界第八大奇觀」，耗盡資金但聲望暴漲
+- 💸 **破產危機（1991）** `[casino_king]`：限時談判任務，成功重組 or 宣告破產
   - *若破產*：WEALTH 歸零，FAME +5,000，解鎖「我從不真正破產」成就
 
 ### 電視時代（55–60 歲）
-- 📺 **The Apprentice 試播（2004）**：錄製節目小遊戲，FAME 爆炸性成長
-- 🔥 **「You're Fired!」首次說出（2004）**：全服成就通知，口頭禪解鎖
+<!-- character_key: tv_star -->
+- 📺 **The Apprentice 試播（2004）** `[tv_star]`：錄製節目小遊戲，FAME 爆炸性成長
+- 🔥 **「You're Fired!」首次說出（2004）** `[tv_star]`：全服成就通知，口頭禪解鎖
 
 ### 政治時代（60+ 歲）
-- 🛗 **搭手扶梯宣布參選（2015.06.16）**：動畫重現名場面
-- 🎤 **共和黨辯論**：即時問答小遊戲，用川普邏輯回答政策問題
-- 🌙 **選舉夜 2016**：緊張倒數，選舉人票實時累積，306 vs 232
-- 🔨 **第一次彈劾（2019）**：找夠多參議員支持的防禦小遊戲
-- 🏛️ **國會山莊事件（2021.01.06）**：高風險危機，影響最終結局分支
-- 🚫 **Twitter 封號（2021）**：突發危機，需在 24 小時內移往 Truth Social
-- ⚖️ **重罪定罪（2024）**：史上首位被定罪前總統，EGO 危機與 SUPPORT 大考驗
-- 🎯 **暗殺未遂（2024）**：隨機觸發的緊急閃躲小遊戲
-- 🏆 **2024 再度當選**：隱藏結局，312 vs 226 選舉人票勝利動畫
+<!-- character_key: candidate → the_president -->
+- 🛗 **搭手扶梯宣布參選（2015.06.16）** `[candidate]`：動畫重現名場面
+- 🎤 **共和黨辯論** `[candidate]`：即時問答小遊戲，用川普邏輯回答政策問題
+- 🌙 **選舉夜 2016** `[candidate]`：緊張倒數，選舉人票實時累積，306 vs 232
+- 🔨 **第一次彈劾（2019）** `[the_president]`：找夠多參議員支持的防禦小遊戲
+- 🏛️ **國會山莊事件（2021.01.06）** `[the_president]`：高風險危機，影響最終結局分支
+- 🚫 **Twitter 封號（2021）** `[the_president]`：突發危機，需在 24 小時內移往 Truth Social
+- ⚖️ **重罪定罪（2024）** `[the_president]`：史上首位被定罪前總統，EGO 危機與 SUPPORT 大考驗
+- 🎯 **暗殺未遂（2024）** `[the_president]`：隨機觸發的緊急閃躲小遊戲
+- 🏆 **2024 再度當選** `[the_president]`：隱藏結局，312 vs 226 選舉人票勝利動畫
 
 ---
 
