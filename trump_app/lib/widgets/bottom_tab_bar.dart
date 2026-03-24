@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+// ── 色系 ────────────────────────────────────────────────────
+const _kGold    = Color(0xFFFFD700);
+const _kSurface = Color(0xFF111111);
+const _kBorder  = Color(0xFF333333);
 
 enum GameTab { home, feed, groom, tweet, events }
 
+/// 底部像素風格 Tab Bar（對應設計稿底部導覽列）
 class BottomGameTabBar extends StatelessWidget {
   final GameTab activeTab;
   final ValueChanged<GameTab> onTabChanged;
@@ -13,47 +20,40 @@ class BottomGameTabBar extends StatelessWidget {
   });
 
   static const _tabs = [
-    (tab: GameTab.home, emoji: '🏠', label: '首頁'),
-    (tab: GameTab.feed, emoji: '🍔', label: '餵食'),
-    (tab: GameTab.groom, emoji: '💇', label: '整髮'),
-    (tab: GameTab.tweet, emoji: '🐦', label: '推文'),
-    (tab: GameTab.events, emoji: '🗺️', label: '事件'),
+    (tab: GameTab.home,   emoji: '🏠', label: 'HOME'),
+    (tab: GameTab.feed,   emoji: '🍔', label: 'FEED'),
+    (tab: GameTab.groom,  emoji: '💇', label: 'HAIR'),
+    (tab: GameTab.tweet,  emoji: '🐦', label: 'TWEET'),
+    (tab: GameTab.events, emoji: '🗺️', label: 'JOURNEY'),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.93),
-          borderRadius: BorderRadius.circular(36),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _tabs.map((t) => _TabItem(
-            emoji: t.emoji,
-            label: t.label,
-            active: activeTab == t.tab,
-            onTap: () => onTabChanged(t.tab),
-          )).toList(),
-        ),
+      height: 60,
+      decoration: const BoxDecoration(
+        color: _kSurface,
+        border: Border(top: BorderSide(color: _kBorder, width: 1)),
+      ),
+      child: Row(
+        children: _tabs.map((t) => _PixelTab(
+          emoji: t.emoji,
+          label: t.label,
+          active: activeTab == t.tab,
+          onTap: () => onTabChanged(t.tab),
+        )).toList(),
       ),
     );
   }
 }
 
-class _TabItem extends StatelessWidget {
+class _PixelTab extends StatelessWidget {
   final String emoji;
   final String label;
   final bool active;
   final VoidCallback onTap;
 
-  const _TabItem({
+  const _PixelTab({
     required this.emoji,
     required this.label,
     required this.active,
@@ -62,28 +62,35 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFFFD700).withValues(alpha: 0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: TextStyle(fontSize: active ? 20 : 17)),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-                color: active ? const Color(0xFFCC9900) : const Color(0xFF888888),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: active ? _kGold.withValues(alpha: 0.12) : Colors.transparent,
+            border: Border(
+              top: BorderSide(
+                color: active ? _kGold : Colors.transparent,
+                width: 2,
               ),
             ),
-          ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(emoji, style: TextStyle(fontSize: active ? 18 : 15)),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: GoogleFonts.spaceMono(
+                  fontSize: 7,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                  color: active ? _kGold : const Color(0xFF555555),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

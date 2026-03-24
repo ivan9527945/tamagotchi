@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/game_state.dart';
 import '../character/character_state.dart';
 
-/// 頂部狀態列（對應設計稿 "sb" 元件）
+// ── 設計稿色系 ─────────────────────────────────────────────
+const _kGold = Color(0xFFFFD700);
+const _kRed  = Color(0xFFCC0000);
+const _kNavy = Color(0xFF002868);
+const _kBg   = Color(0xFF0A0A0A);
+
+TextStyle _mono({double size = 10, Color color = _kGold, FontWeight weight = FontWeight.w700}) =>
+    GoogleFonts.spaceMono(fontSize: size, color: color, fontWeight: weight);
+
+/// 頂部像素風格狀態列（對應設計稿 Main Screen 上方區塊）
 class StatsBar extends StatelessWidget {
   const StatsBar({super.key});
 
@@ -11,166 +21,92 @@ class StatsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final gs = context.watch<GameState>();
     return Container(
-      height: 80,
-      decoration: const BoxDecoration(
-        color: Color(0xD0FFFFFF),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      color: _kBg,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // 左：階段名稱 + 年齡
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                gs.stage.displayName,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A1A1A),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                gs.stage.ageRange,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF888888),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          // 右：6 屬性小圖示
+          // ── 階段名稱列 ──────────────────────────────────────
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatChip(emoji: '💰', value: gs.wealth, isLarge: true),
-              const SizedBox(width: 6),
-              _StatChip(emoji: '😤', value: gs.ego),
-              const SizedBox(width: 6),
-              _StatChip(emoji: '🗳️', value: gs.support),
+              Text(
+                gs.stage.pixelName.toUpperCase(),
+                style: _mono(size: 11, color: _kGold),
+              ),
+              Text(
+                gs.stage.ageRange.toUpperCase(),
+                style: _mono(size: 9, color: const Color(0xFF888888)),
+              ),
             ],
           ),
+          const SizedBox(height: 6),
+          // ── 6 條像素屬性 ────────────────────────────────────
+          _PixelStatRow(label: '💰 WEALTH', value: gs.wealth / 10000, color: _kGold, displayText: _formatWealth(gs.wealth)),
+          const SizedBox(height: 3),
+          _PixelStatRow(label: '📺 FAME',   value: (gs.fame / 100000).clamp(0.0, 1.0), color: const Color(0xFF1DA1F2)),
+          const SizedBox(height: 3),
+          _PixelStatRow(label: '😤 EGO',    value: gs.ego / 100,    color: _kRed),
+          const SizedBox(height: 3),
+          _PixelStatRow(label: '⚡ ENERGY', value: gs.energy / 100, color: _kGold),
+          const SizedBox(height: 3),
+          _PixelStatRow(label: '🍟 HUNGER', value: gs.hunger / 100, color: const Color(0xFFFF8833)),
+          const SizedBox(height: 3),
+          _PixelStatRow(label: '🗳️ SUPPORT',value: gs.support / 100, color: _kNavy),
         ],
       ),
     );
   }
+
+  String _formatWealth(double w) {
+    if (w >= 1000000) return '\$${(w / 1000000).toStringAsFixed(1)}M';
+    if (w >= 1000)    return '\$${(w / 1000).toStringAsFixed(0)}K';
+    return '\$${w.toInt()}';
+  }
 }
 
-class _StatChip extends StatelessWidget {
-  final String emoji;
-  final double value;
-  final bool isLarge;
+/// 單行像素屬性條 — 格式：LABEL ■■■■□□□□□□ VALUE
+class _PixelStatRow extends StatelessWidget {
+  final String label;
+  final double value;   // 0.0 – 1.0
+  final Color color;
+  final String? displayText;
+  static const _blocks = 10;
 
-  const _StatChip({
-    required this.emoji,
+  const _PixelStatRow({
+    required this.label,
     required this.value,
-    this.isLarge = false,
+    required this.color,
+    this.displayText,
   });
 
   @override
   Widget build(BuildContext context) {
-    final display = isLarge
-        ? (value >= 1000000
-            ? '\$${(value / 1000000).toStringAsFixed(1)}M'
-            : value >= 1000
-                ? '\$${(value / 1000).toStringAsFixed(0)}K'
-                : '\$${value.toInt()}')
-        : '${value.toInt()}';
+    final filled = (value.clamp(0.0, 1.0) * _blocks).round();
+    final bar = List.generate(_blocks, (i) => i < filled ? '■' : '□').join();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 12)),
-          const SizedBox(width: 3),
-          Text(
-            display,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
+    return Row(
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(label, style: _mono(size: 8, color: const Color(0xFF888888))),
+        ),
+        Text(bar, style: _mono(size: 9, color: color)),
+        if (displayText != null) ...[
+          const SizedBox(width: 6),
+          Text(displayText!, style: _mono(size: 8, color: color)),
         ],
-      ),
+      ],
     );
   }
 }
 
-/// 底部屬性詳細列（展開時顯示）
+/// 底部詳細屬性列（現在已融入 StatsBar 本體，此 widget 保留供兼容）
 class StatsDetailRow extends StatelessWidget {
   const StatsDetailRow({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final gs = context.watch<GameState>();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: Colors.white.withValues(alpha: 0.95),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _StatBar(label: '🍟 HUNGER', value: gs.hunger, color: const Color(0xFFFF8833))),
-              const SizedBox(width: 12),
-              Expanded(child: _StatBar(label: '⚡ ENERGY', value: gs.energy, color: const Color(0xFFFFD700))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _StatBar(label: '😤 EGO', value: gs.ego, color: const Color(0xFFFF3366))),
-              const SizedBox(width: 12),
-              Expanded(child: _StatBar(label: '📺 FAME', value: gs.fame.clamp(0, 100000) / 1000, color: const Color(0xFF1DA1F2))),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _StatBar(label: '🗳️ SUPPORT', value: gs.support, color: const Color(0xFF002868)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatBar extends StatelessWidget {
-  final String label;
-  final double value; // 0–100
-  final Color color;
-
-  const _StatBar({required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF555555))),
-            Text('${value.toInt()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A))),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: (value / 100).clamp(0.0, 1.0),
-            backgroundColor: const Color(0xFFE5E7EB),
-            color: color,
-            minHeight: 7,
-          ),
-        ),
-      ],
-    );
+    return const SizedBox.shrink(); // 已整合進 StatsBar
   }
 }

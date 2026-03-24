@@ -31,8 +31,63 @@ enum CharacterStage {
 extension CharacterStageExt on CharacterStage {
   String get rivePath => 'assets/rive/$name.riv';
   String get fallbackPng => 'assets/characters/$pngName.png';
-  /// 各階段角色場景圖（來自 Pencil 設計稿 image nodeId）
-  String get stageImagePath => 'assets/stages/$pngName.png';
+  /// 各階段背景圖（BG1–BG7，根據故事線切換）
+  String get bgImagePath => switch (this) {
+    CharacterStage.babyDonald       => 'assets/stages/queens_house.png',
+    CharacterStage.queensKid        => 'assets/stages/queens_house.png',
+    CharacterStage.militaryCadet    => 'assets/stages/queens_house.png',
+    CharacterStage.whartonBoy       => 'assets/stages/manhattan_skyline.png',
+    CharacterStage.daddysApprentice => 'assets/stages/manhattan_skyline.png',
+    CharacterStage.manhattanMogul   => 'assets/stages/manhattan_skyline.png',
+    CharacterStage.casinoKing       => 'assets/stages/atlantic_city_casino.png',
+    CharacterStage.tvStar           => 'assets/stages/nbc_studio.png',
+    CharacterStage.candidate        => 'assets/stages/campaign_stage.png',
+    CharacterStage.thePresident     => 'assets/stages/white_house.png',
+  };
+
+  /// 各階段角色場景圖（舊版，保留相容）
+  String get stageImagePath => bgImagePath;
+
+  /// 繁體中文階段名稱
+  String get chineseName => switch (this) {
+    CharacterStage.babyDonald       => '嬰兒唐納 🍼',
+    CharacterStage.queensKid        => '皇后區少年 👦',
+    CharacterStage.militaryCadet    => '軍校學員 🎖️',
+    CharacterStage.whartonBoy       => '沃頓學生 🎓',
+    CharacterStage.daddysApprentice => '老爸學徒 💼',
+    CharacterStage.manhattanMogul   => '曼哈頓大亨 🏙️',
+    CharacterStage.casinoKing       => '賭場之王 🎰',
+    CharacterStage.tvStar           => '電視明星 📺',
+    CharacterStage.candidate        => '候選人 🇺🇸',
+    CharacterStage.thePresident     => '總統 👑',
+  };
+
+  /// 故事年份
+  String get stageYear => switch (this) {
+    CharacterStage.babyDonald       => '1946',
+    CharacterStage.queensKid        => '1952',
+    CharacterStage.militaryCadet    => '1959',
+    CharacterStage.whartonBoy       => '1964',
+    CharacterStage.daddysApprentice => '1968',
+    CharacterStage.manhattanMogul   => '1976',
+    CharacterStage.casinoKing       => '1986',
+    CharacterStage.tvStar           => '2004',
+    CharacterStage.candidate        => '2015',
+    CharacterStage.thePresident     => '2017',
+  };
+  /// 像素風格短名稱（用於 StatsBar 顯示）
+  String get pixelName => switch (this) {
+    CharacterStage.babyDonald       => 'BABY DONALD',
+    CharacterStage.queensKid        => 'QUEENS KID',
+    CharacterStage.militaryCadet    => 'MILITARY CADET',
+    CharacterStage.whartonBoy       => 'WHARTON BOY',
+    CharacterStage.daddysApprentice => "DADDY'S APPRENTICE",
+    CharacterStage.manhattanMogul   => 'MANHATTAN MOGUL',
+    CharacterStage.casinoKing       => 'CASINO KING',
+    CharacterStage.tvStar           => 'TV STAR',
+    CharacterStage.candidate        => 'CANDIDATE',
+    CharacterStage.thePresident     => 'THE PRESIDENT',
+  };
 
   String get pngName => switch (this) {
     CharacterStage.babyDonald       => 'baby_donald',

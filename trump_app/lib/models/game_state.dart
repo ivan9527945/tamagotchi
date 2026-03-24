@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../character/character_state.dart';
 
@@ -13,10 +14,17 @@ class GameState extends ChangeNotifier {
 
   int _stageIndex = 0;
   int _bankruptcyCount = 0;
+  late final Timer _tickTimer;
   int _tweetStormCount = 0; // 連推計數
   List<String> _unlockedBuildings = [];
   List<String> _completedEvents = [];
   String _currentSpeech = '我是最棒的！TREMENDOUS!';
+  CharacterState _characterState = CharacterState.idle;
+
+  GameState() {
+    // 每 10 秒自動 tick（被動衰減 + 建築收益）
+    _tickTimer = Timer.periodic(const Duration(seconds: 10), (_) => dailyTick());
+  }
 
   // ── Getters ─────────────────────────────────────────────
   double get wealth => _wealth;
@@ -32,6 +40,7 @@ class GameState extends ChangeNotifier {
   List<String> get completedEvents => List.unmodifiable(_completedEvents);
   List<String> get unlockedBuildings => List.unmodifiable(_unlockedBuildings);
   String get currentSpeech => _currentSpeech;
+  CharacterState get characterState => _characterState;
 
   // 是否可進行交易（精力充足）
   bool get canDeal => _energy >= 20;
@@ -55,22 +64,28 @@ class GameState extends ChangeNotifier {
     _hunger = (_hunger + 25).clamp(0, 100);
     _energy = (_energy + 10).clamp(0, 100);
     _setSpeech(_foodSpeech(foodName));
+    _characterState = CharacterState.eating;
     _applyEgoFameInteraction();
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   /// 💇 整髮（節奏點擊小遊戲成功）
   void groomSuccess() {
     _ego = (_ego + 15).clamp(0, 100);
     _setSpeech('完美！我的頭髮無與倫比！');
+    _characterState = CharacterState.happy;
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   /// 💇 整髮失敗
   void groomFail() {
     _ego = (_ego - 20).clamp(0, 100);
     _setSpeech('SAD! 今天頭髮很糟糕！');
+    _characterState = CharacterState.angry;
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   /// 🟧 噴古銅色（點擊噴霧罐）
@@ -78,16 +93,32 @@ class GameState extends ChangeNotifier {
     final boost = (tapCount * 2.0).clamp(0, 10);
     _ego = (_ego + boost).clamp(0, 100);
     _setSpeech('完美的橙色！像金牌一樣！');
+    _characterState = CharacterState.happy;
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
+  }
+
+  /// 🛃 徵收關稅
+  void imposeTariff() {
+    _wealth += 1000 + (_stageIndex * 500);
+    _support = (_support + 3).clamp(0, 100);
+    _ego = (_ego + 5).clamp(0, 100);
+    _setSpeech('關稅！關稅！讓美國再次偉大！TREMENDOUS!');
+    _characterState = CharacterState.celebrating;
+    notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   /// 📺 看 Fox News
   void watchFoxNews() {
     _energy = (_energy + 30).clamp(0, 100);
     _ego = (_ego + 15).clamp(0, 100); // 危險！
+    _wealth += 300; // 商業靈感
     _setSpeech('FAKE NEWS 無所不在！只有 Fox 說真話！');
+    _characterState = CharacterState.celebrating;
     _applyEgoFameInteraction();
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   /// 💤 強制睡眠（抵抗值歸零後執行）
@@ -96,7 +127,9 @@ class GameState extends ChangeNotifier {
     _energy = (_energy + 40).clamp(0, 100);
     _ego = (_ego - 5).clamp(0, 100); // 睡覺讓 EGO 稍降
     _setSpeech('我只睡 4 小時。精力充沛！');
+    _characterState = CharacterState.sleeping;
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 3));
   }
 
   // ── 社群媒體系統 ─────────────────────────────────────────
@@ -107,6 +140,7 @@ class GameState extends ChangeNotifier {
     double fameBoost = score * 50.0;
 
     _fame = _fame + fameBoost;
+    _wealth += score * 20.0; // 品牌業配收益
     _ego = (_ego + score * 0.3).clamp(0, 100);
     _tweetStormCount++;
 
@@ -120,8 +154,10 @@ class GameState extends ChangeNotifier {
       _setSpeech('TREMENDOUS tweet! 粉絲們會瘋狂的！');
     }
 
+    _characterState = CharacterState.tweeting;
     _applyEgoFameInteraction();
     notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
     return score;
   }
 
@@ -141,6 +177,38 @@ class GameState extends ChangeNotifier {
     _energy = (_energy - 15).clamp(0, 100);
     _applyWealthCrisis();
     notifyListeners();
+  }
+
+  /// ⛳ 打高爾夫（放鬆 + 人脈）
+  void playGolf() {
+    _energy = (_energy + 20).clamp(0, 100);
+    _ego = (_ego + 10).clamp(0, 100);
+    _support = (_support + 8).clamp(0, 100);
+    _wealth += 200 + (_stageIndex * 100); // 球場人脈帶來商機
+    _setSpeech('高爾夫！我的球技是歷屆總統中最好的！');
+    _characterState = CharacterState.happy;
+    notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
+  }
+
+  /// 🤝 談判（財富 + 名氣，消耗精力）
+  void negotiate() {
+    if (_energy < 10) {
+      _setSpeech('太累了！我需要休息才能談判！');
+      notifyListeners();
+      return;
+    }
+    final gain = 2000.0 + (_stageIndex * 800);
+    _wealth += gain;
+    _fame = _fame + 300 * (_stageIndex + 1);
+    _ego = (_ego + 8).clamp(0, 100);
+    _energy = (_energy - 15).clamp(0, 100);
+    _support = (_support + 5).clamp(0, 100);
+    _setSpeech('這是有史以來最偉大的交易！ART OF THE DEAL!');
+    _characterState = CharacterState.celebrating;
+    _applyEgoFameInteraction();
+    notifyListeners();
+    _resetStateAfter(const Duration(seconds: 2));
   }
 
   // ── 建設系統 ─────────────────────────────────────────────
@@ -213,6 +281,25 @@ class GameState extends ChangeNotifier {
     _currentSpeech = text;
   }
 
+  /// 動畫幀：N秒後自動回到 idle
+  void _resetStateAfter(Duration delay) {
+    Future.delayed(delay, () {
+      if (!_disposed) {
+        _characterState = CharacterState.idle;
+        notifyListeners();
+      }
+    });
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _tickTimer.cancel();
+    super.dispose();
+  }
+
   void _applyEgoFameInteraction() {
     // EGO ↑ → FAME ↑（但也帶來訴訟風險，暫以 support 微降模擬）
     if (_ego > 80) {
@@ -249,17 +336,17 @@ class GameState extends ChangeNotifier {
       case CharacterStage.whartonBoy:
         return _fame >= 60;
       case CharacterStage.daddysApprentice:
-        return _completedEvents.contains('learn_from_dad');
+        return _wealth >= 500 && _ego >= 60;
       case CharacterStage.manhattanMogul:
         return _wealth >= 10000;
       case CharacterStage.casinoKing:
-        return _unlockedBuildings.contains('casino');
+        return _wealth >= 50000;
       case CharacterStage.tvStar:
         return _fame >= 50000;
       case CharacterStage.candidate:
         return _support >= 60;
       case CharacterStage.thePresident:
-        return _completedEvents.contains('election_2016');
+        return _support >= 80;
       default:
         return false;
     }
